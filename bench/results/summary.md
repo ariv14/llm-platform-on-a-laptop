@@ -21,3 +21,37 @@ model so the parallel-slot limit is derived, not guessed.
 
 The c=1 p95 of 5.64 s is a cold-start outlier (first request after model load); report both
 cold and warm from now on.
+
+## Week 2 (same day) — parallel slots: `OLLAMA_NUM_PARALLEL=4`
+
+Warm runs (one warm-up request discarded). Server log confirms `Parallel:4 … KvSize:16384`
+(4 slots × 4096 context) vs the default single slot.
+
+| Runtime | Concurrency | Requests | Wall | TTFT p50 | TTFT p95 | Aggregate tok/s |
+|---|---|---|---|---|---|---|
+| Ollama, `NUM_PARALLEL=1` (default) | 1 | 4 | 71.2 s | 0.26 s | 5.64 s* | 8.4 |
+| Ollama, `NUM_PARALLEL=1` (default) | 4 | 8 | 155.9 s | 57.59 s | 59.47 s | 7.7 |
+| Ollama, `NUM_PARALLEL=4` | 1 | 4 | 108.1 s | 0.44 s | 0.54 s | 5.5 |
+| Ollama, `NUM_PARALLEL=4` | 4 | 8 | 212.1 s | 1.40 s | 17.90 s | 5.7 |
+
+\* cold start included.
+
+**Finding 2 — parallel slots buy latency with throughput, and the bill is paid even when
+idle.** Four slots cut TTFT p50 under load from 57.6 s to 1.4 s (41×) — the queue is gone — but
+aggregate tokens/s fell 26% (7.7 → 5.7) on an 8-core CPU, and the *single-client* run also
+slowed (8.4 → 5.5) because the slots pre-allocate KV memory and split the batch budget whether
+or not they are used. The p95 of 17.9 s at c=4 is the last request in each wave waiting for a
+slot: with 8 requests over 4 slots there are two waves, and the second wave's first token
+cannot arrive until a first-wave sequence finishes. This is a scheduler-sizing decision, not a
+tuning knob: choose slots from the latency SLO and the arrival rate, then provision
+throughput for it — the same capacity exercise as YARN container sizing.
+
+**KV-cache arithmetic, Qwen2.5-1.5B-Instruct** (28 layers, 2 KV heads (GQA), head_dim 128):
+bytes per token = 2 (K,V) × 28 × 2 × 128 × 2 B (f16) = **28,672 B ≈ 28 KiB/token**.
+Ollama's `KvSize 16384` therefore reserves ≈ 448 MiB of KV at f16 for four 4,096-token slots;
+q8 KV would halve it. For a 7B Llama-class model (32 layers, 8 KV heads, head_dim 128) the same
+formula gives 128 KiB/token — 16× more per token — which is why slot count, context length and
+KV dtype are the three numbers that decide how many tenants a GPU can hold.
+
+**Next:** vLLM CPU build (continuous batching, no fixed slots) on the same test; then
+`k8s/` with the slot count expressed as a per-tenant ResourceQuota.
