@@ -1,0 +1,7 @@
+*.gguf
+models/
+.venv/
+__pycache__/
+*.log
+.DS_Store
+results/*.raw
