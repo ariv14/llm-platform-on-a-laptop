@@ -12,7 +12,7 @@ on any fleet, plus a thin new layer (serving runtimes, GPU health, LLM SLOs).
 
 | Week | Milestone | Status |
 |---|---|---|
-| 1–2 | Serve a 1–3B model locally (llama.cpp, Ollama, vLLM CPU); measure TTFT / ITL / tokens-per-s; KV-cache maths | ☐ |
+| 1–2 | Serve a 1–3B model locally (llama.cpp, Ollama, vLLM CPU); measure TTFT / ITL / tokens-per-s; KV-cache maths | ◐ Ollama baseline done — [results](bench/results/summary.md): c=1 TTFT p50 0.26 s; c=4 TTFT p50 57.6 s, throughput unchanged (queueing, not batching) |
 | 3–4 | kind + fake-gpu-operator + KWOK: GPU requests/limits, taints, priority classes, per-tenant ResourceQuota; KEDA on queue depth | ☐ |
 | 5–6 | kube-prometheus-stack, vLLM + fake-DCGM dashboards, SLOs, Alertmanager; **RUNBOOK.md** | ☐ |
 | 7–8 | LiteLLM gateway: virtual keys, budgets, fallback to free hosted tiers; Langfuse tracing; **COST.md** | ☐ |
